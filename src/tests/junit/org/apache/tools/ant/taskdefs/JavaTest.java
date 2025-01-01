@@ -35,6 +35,7 @@ import org.apache.tools.ant.MagicNames;
 import org.apache.tools.ant.input.DefaultInputHandler;
 import org.apache.tools.ant.taskdefs.condition.JavaVersion;
 import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.JavaEnvUtils;
 import org.apache.tools.ant.util.TeeOutputStream;
 import org.junit.Assume;
 import org.junit.AssumptionViolatedException;
@@ -72,6 +73,17 @@ public class JavaTest {
 
     private boolean runFatalTests = false;
 
+    private static final boolean allowedToUseSecurityManager;
+    private static final String SKIP_SEC_MGR_USAGE =
+            "Skipping test on current Java version " + JavaEnvUtils.getJavaVersion()
+                    + " because SecurityManager is no longer supported";
+    static {
+        final JavaVersion javaVersion = new JavaVersion();
+        javaVersion.setAtMost("17");
+        // don't run tests which require usage of SecurityManager.
+        // Ant no longer sets a custom SecurityManager for Java versions >= 18
+        allowedToUseSecurityManager = javaVersion.eval();
+    }
 
     /**
      * configure the project.
@@ -209,12 +221,14 @@ public class JavaTest {
     @Test
     public void testRunFail() {
         assumeTrue("Fatal tests have not been set to run", runFatalTests);
+        assumeTrue(SKIP_SEC_MGR_USAGE, allowedToUseSecurityManager);
         buildRule.executeTarget("testRunFail");
     }
 
     @Test
     public void testRunFailFoe() {
         assumeTrue("Fatal tests have not been set to run", runFatalTests);
+        assumeTrue(SKIP_SEC_MGR_USAGE, allowedToUseSecurityManager);
         thrown.expect(BuildException.class);
         thrown.expectMessage("Java returned:");
         buildRule.executeTarget("testRunFailFoe");
@@ -267,18 +281,21 @@ public class JavaTest {
 
     @Test
     public void testResultPropertyZeroNoFork() {
+        assumeTrue(SKIP_SEC_MGR_USAGE, allowedToUseSecurityManager);
         buildRule.executeTarget("testResultPropertyZeroNoFork");
         assertEquals("0", buildRule.getProject().getProperty("exitcode"));
     }
 
     @Test
     public void testResultPropertyNonZeroNoFork() {
+        assumeTrue(SKIP_SEC_MGR_USAGE, allowedToUseSecurityManager);
         buildRule.executeTarget("testResultPropertyNonZeroNoFork");
-         assertEquals("-1", buildRule.getProject().getProperty("exitcode"));
+        assertEquals("-1", buildRule.getProject().getProperty("exitcode"));
      }
 
     @Test
     public void testRunFailWithFailOnError() {
+        assumeTrue(SKIP_SEC_MGR_USAGE, allowedToUseSecurityManager);
         thrown.expect(BuildException.class);
         thrown.expectMessage("Java returned:");
         buildRule.executeTarget("testRunFailWithFailOnError");

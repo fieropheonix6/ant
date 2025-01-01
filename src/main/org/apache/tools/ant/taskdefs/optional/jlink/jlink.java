@@ -255,7 +255,11 @@ public class jlink {
      */
     private void addDirContents(ZipOutputStream output, File dir, String prefix,
                                 boolean compress) throws IOException {
-        for (String name : dir.list()) {
+        String[] names = dir.list();
+        if (names == null || names.length == 0) {
+            return;
+        }
+        for (String name : names) {
             File file = new File(dir, name);
 
             if (file.isDirectory()) {

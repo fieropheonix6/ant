@@ -75,7 +75,8 @@ import org.apache.tools.ant.util.regexp.RegexpUtil;
  *                    match="pattern"
  *                    replace="pattern"
  *                    flags="options"?
- *                    byline="true|false"? &gt;
+ *                    byline="true|false"?
+ *                    failOnError="true|false"? &gt;
  *       regexp?
  *       substitution?
  *       fileset*
@@ -101,6 +102,10 @@ import org.apache.tools.ant.util.regexp.RegexpUtil;
  *                 "true" indicates to perform replacement on a line by line basis
  *                 "false" indicates to perform replacement on the whole file at once.
  *
+ *     failOnError --&gt; Should this task fail if an error occurs (default is false)
+ *                 "true" indicates that this task should fail if an error occurs
+ *                 "false" indicates that this task should continue if an error occurs
+ *
  *  Example:
  *
  *     The following call could be used to replace an old property name in a ".properties"
@@ -123,6 +128,7 @@ public class ReplaceRegExp extends Task {
     private Union resources;
     private RegularExpression regex;
     private Substitution subs;
+    private boolean failonerror = false;
 
     private static final FileUtils FILE_UTILS = FileUtils.getFileUtils();
 
@@ -316,6 +322,16 @@ public class ReplaceRegExp extends Task {
     }
 
     /**
+     * If false, note errors but continue.
+     *
+     * @param failonerror true or false
+     * @since Ant 1.10.15
+     */
+    public void setFailOnError(boolean failonerror) {
+        this.failonerror = failonerror;
+    }
+
+    /**
      * Invoke a regular expression (r) on a string (input) using
      * substitutions (s) for a matching regex.
      *
@@ -434,7 +450,7 @@ public class ReplaceRegExp extends Task {
                 log("File has changed; saving the updated file", Project.MSG_VERBOSE);
                 try {
                     long origLastModified = f.lastModified();
-                    FILE_UTILS.rename(temp, f);
+                    FILE_UTILS.rename(temp, f, true);
                     if (preserveLastModified) {
                         FILE_UTILS.setFileLastModified(f, origLastModified);
                     }
@@ -481,10 +497,17 @@ public class ReplaceRegExp extends Task {
                 log("An error occurred processing file: '"
                     + file.getAbsolutePath() + "': " + e.toString(),
                     Project.MSG_ERR);
+                if (failonerror) {
+                    throw new BuildException("An error occurred processing file: '" + file.getAbsolutePath() + "'",
+                                             e, getLocation());
+                }
             }
         } else if (file != null) {
             log("The following file is missing: '"
                 + file.getAbsolutePath() + "'", Project.MSG_ERR);
+            if (failonerror) {
+                throw new BuildException("The following file is missing: '" + file.getAbsolutePath() + "'");
+            }
         }
 
         if (resources != null) {
@@ -498,10 +521,17 @@ public class ReplaceRegExp extends Task {
                         log("An error occurred processing file: '"
                             + f.getAbsolutePath() + "': " + e.toString(),
                             Project.MSG_ERR);
+                        if (failonerror) {
+                            throw new BuildException("An error occurred processing file: '" + f.getAbsolutePath() + "'",
+                                                     e, getLocation());
+                        }
                     }
                 } else {
                     log("The following file is missing: '"
                         + f.getAbsolutePath() + "'", Project.MSG_ERR);
+                    if (failonerror) {
+                        throw new BuildException("The following file is missing: '" + f.getAbsolutePath() + "'");
+                    }
                 }
             }
         }

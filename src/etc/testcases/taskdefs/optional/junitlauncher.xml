@@ -39,6 +39,7 @@
         <fileset dir="../../../../../lib/optional">
             <include name="junit-jupiter*.jar"/>
             <include name="opentest4j*.jar"/>
+            <include name="apiguardian-api*"/> <!-- required for jupiter ParameterizedTest -->
         </fileset>
     </path>
 
@@ -141,6 +142,7 @@
                 <fileset dir="${build.classes.dir}">
                     <include name="org/example/**/junitlauncher/**/"/>
                     <exclude name="org/example/**/junitlauncher/**/ForkedTest.class"/>
+                    <exclude name="org/example/**/junitlauncher/**/SharedDataAccessorTest*.class"/>
                 </fileset>
                 <listener type="legacy-brief" sendSysOut="true"/>
                 <listener type="legacy-xml" sendSysErr="true" sendSysOut="true"/>
@@ -369,6 +371,135 @@
             </testclasses>
             <listener type="legacy-plain" sendSysOut="true" />
             <listener type="legacy-brief" sendSysOut="true" useLegacyReportingName="true"/>
+        </junitlauncher>
+    </target>
+
+    <target name="test-fork-different-java" depends="init">
+        <!-- create a symlinked file which points to the "java" command
+        and use that symlink to launch the forked JVM -->
+        <property name="different-java" value="${java.io.tmpdir}/foobarjava"/>
+        <delete file="${different-java}"/>
+        <symlink resource="${java.home}/bin/java" link="${different-java}"/>
+
+        <junitlauncher>
+            <classpath refid="test.classpath"/>
+            <test name="org.example.junitlauncher.vintage.ForkedTest" outputdir="${output.dir}">
+                <listener classname="org.example.junitlauncher.Tracker"
+                          outputDir="${output.dir}"
+                          resultFile="${test-fork-different-java.tracker}"
+                          if="test-fork-different-java.tracker"/>
+
+                <!-- we just verify that the launch of the forked JVM works fine and the test
+                succeeds. There isn't a (easy) way we can actually verify the binary that was used
+                to launch the forked JVM -->
+                <fork dir="${basedir}" java="${different-java}">
+                    <sysproperty key="junitlauncher.test.sysprop.one" value="forked"/>
+                </fork>
+
+                <listener type="legacy-xml"/>
+            </test>
+        </junitlauncher>
+    </target>
+
+    <target name="test-jupiter-parameterized-test" depends="init">
+        <junitlauncher>
+            <classpath refid="junit.engine.jupiter.classpath"/>
+            <classpath>
+                <pathelement location="${build.classes.dir}"/>
+            </classpath>
+            <test name="org.example.junitlauncher.jupiter.JupiterSampleTest"
+                  outputdir="${output.dir}">
+                <listener classname="org.example.junitlauncher.Tracker"
+                          outputDir="${output.dir}"
+                          resultFile="${test-jupiter-parameterized-test.tracker}"
+                          if="test-jupiter-parameterized-test.tracker"/>
+                <fork>
+                    <sysproperty
+                            key="junitlauncher.test.run-jupiter-parameterized-tests"
+                            value="true" />
+                </fork>
+                <listener type="legacy-xml"
+                          resultFile="JupiterSampleTest-ParameterizedTests.xml"
+                          useLegacyReportingName="false"
+                          />
+            </test>
+        </junitlauncher>
+        <junitreport>
+            <fileset dir="${output.dir}">
+                <include name="JupiterSampleTest-ParameterizedTests.xml"/>
+            </fileset>
+            <report todir="${output.dir}/JupiterSampleTest-ParameterizedTests/html/"/>
+        </junitreport>
+    </target>
+
+    <target name="test-fork-one-jvm-all-tests" depends="init">
+        <property name="junitlauncher.test.tracker.append.file"
+                  value="${output.dir}/${test-fork-one-jvm-all-tests.tracker}"/>
+        <junitlauncher>
+            <classpath refid="test.classpath"/>
+            <testclasses outputdir="${output.dir}">
+                <fileset dir="${build.classes.dir}">
+                    <!-- order is important here since the second test is asserted,
+                        in JUnitLauncherTaskTest.testTestClassesDefaultForkMode(), to fail -->
+                    <include name="org/example/**/junitlauncher/**/SharedDataAccessorTest1.class"/>
+                    <include name="org/example/**/junitlauncher/**/SharedDataAccessorTest2.class"/>
+                </fileset>
+                <fork/>
+                <listener classname="org.example.junitlauncher.Tracker"
+                          if="test-fork-one-jvm-all-tests.tracker"/>
+                <listener type="legacy-xml" sendSysErr="true" sendSysOut="true"/>
+            </testclasses>
+        </junitlauncher>
+    </target>
+
+    <target name="test-fork-per-test-class" depends="init">
+        <property name="junitlauncher.test.tracker.append.file"
+                  value="${output.dir}/${test-fork-per-test-class.tracker}"/>
+        <junitlauncher>
+            <classpath refid="test.classpath"/>
+            <testclasses outputdir="${output.dir}">
+                <fileset dir="${build.classes.dir}">
+                    <include name="org/example/**/junitlauncher/**/SharedDataAccessorTest1.class"/>
+                    <include name="org/example/**/junitlauncher/**/SharedDataAccessorTest2.class"/>
+                </fileset>
+                <fork forkMode="perTestClass"/>
+                <listener classname="org.example.junitlauncher.Tracker"
+                          if="test-fork-per-test-class.tracker"/>
+                <listener type="legacy-xml" sendSysErr="true" sendSysOut="true"/>
+            </testclasses>
+        </junitlauncher>
+    </target>
+
+    <target name="test-single-test-explicit-fork-mode" depends="init">
+        <property name="junitlauncher.test.tracker.append.file"
+                  value="${output.dir}/${test-single-test-explicit-fork-mode.tracker}"/>
+        <junitlauncher>
+            <classpath refid="test.classpath"/>
+            <test name="org.example.junitlauncher.jupiter.SharedDataAccessorTest2"
+                  outputdir="${output.dir}">
+                <fork forkMode="perTestClass"/>
+                <listener classname="org.example.junitlauncher.Tracker"
+                          if="test-single-test-explicit-fork-mode.tracker"/>
+                <listener type="legacy-xml" sendSysErr="true" sendSysOut="true"/>
+            </test>
+        </junitlauncher>
+    </target>
+
+    <target name="test-jupiter-dynamic-tests" depends="init">
+        <property name="junitlauncher.test.tracker.append.file"
+                  value="${output.dir}/${test-jupiter-dynamic-tests.tracker}"/>
+        <junitlauncher>
+            <classpath refid="test.classpath"/>
+            <test name="org.example.junitlauncher.jupiter.JupiterDynamicTests"
+                  outputdir="${output.dir}">
+                <fork>
+                    <sysproperty key="junitlauncher.test.failBeforeEach" value="true"/>
+                </fork>
+                <listener classname="org.example.junitlauncher.Tracker"
+                          if="test-jupiter-dynamic-tests.tracker"/>
+                <listener type="legacy-xml" sendSysErr="true" sendSysOut="true"
+                          resultFile="JupiterDynamicTests.xml"/>
+            </test>
         </junitlauncher>
     </target>
 </project>

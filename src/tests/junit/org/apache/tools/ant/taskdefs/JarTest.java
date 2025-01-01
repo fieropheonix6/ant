@@ -32,6 +32,7 @@ import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.BuildFileRule;
 import org.apache.tools.ant.FileUtilities;
 import org.apache.tools.ant.util.FileUtils;
+import org.apache.tools.ant.util.JavaEnvUtils;
 import org.apache.tools.ant.util.StreamUtils;
 import org.junit.Before;
 import org.junit.Rule;
@@ -42,6 +43,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
@@ -453,4 +455,22 @@ public class JarTest {
         assertThat(buildRule.getLog(), not(containsString("No Implementation-Vendor set.")));
     }
 
+    /**
+     * Uses the jar task to create a jar which has zip64mode=always, so that the zip entries
+     * use zip64 extra field. The jar is expected to be created successfully. The test then
+     * use {@link ZipFile java.util.zip.ZipFile} API to open that jar file and the test expects
+     * that it succeeds in doing so.
+     */
+    @Test
+    public void testZip64ModeJar() throws IOException {
+        assumeTrue("Skipping on Java version < 11", JavaEnvUtils.isAtLeastJavaVersion("11"));
+        // invoke the target
+        buildRule.executeTarget("testZip64ModeJar");
+        final File zip64Modejar = new File(getOutputDir(), tempDir + "zip64mode.jar");
+        // verify the jar can be opened using java.util.zip.ZipFile
+        try (final ZipFile archive = new ZipFile(zip64Modejar)) {
+            final ZipEntry ze = archive.getEntry("jar.xml");
+            assertNotNull("Missing jar.xml in " + zip64Modejar, ze);
+        }
+    }
 }
