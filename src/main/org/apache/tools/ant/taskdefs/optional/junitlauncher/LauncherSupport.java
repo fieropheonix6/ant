@@ -45,6 +45,8 @@ import org.junit.platform.launcher.core.LauncherFactory;
 import org.junit.platform.launcher.listeners.SummaryGeneratingListener;
 import org.junit.platform.launcher.listeners.TestExecutionSummary;
 
+import java.io.BufferedOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -256,7 +258,7 @@ public class LauncherSupport {
         // set the destination output stream for writing out the formatted result
         final java.nio.file.Path resultOutputFile = getListenerOutputFile(testRequest, formatterDefinition);
         try {
-            final OutputStream resultOutputStream = Files.newOutputStream(resultOutputFile);
+            final OutputStream resultOutputStream = new BufferedOutputStream(Files.newOutputStream(resultOutputFile));
             // enroll the output stream to be closed when the execution of the TestRequest completes
             testRequest.closeUponCompletion(resultOutputStream);
             resultFormatter.setDestination(new KeepAliveOutputStream(resultOutputStream));
@@ -287,11 +289,11 @@ public class LauncherSupport {
         }
         if (listener.getOutputDir() != null) {
             // use the output dir defined on the listener
-            return Paths.get(listener.getOutputDir(), filename);
+            return new File(listener.getOutputDir(), filename).toPath();
         }
         // check on the enclosing test definition, in context of which this listener is being run
         if (test.getOutputDir() != null) {
-            return Paths.get(test.getOutputDir(), filename);
+            return new File(test.getOutputDir(), filename).toPath();
         }
         // neither listener nor the test define a output dir, so use basedir of the project
         final TestExecutionContext testExecutionContext = this.testExecutionContext;
